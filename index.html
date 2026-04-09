@@ -31,13 +31,20 @@ display:block;
 text-align:center;
 padding:12px;
 margin-top:8px;
-
 border-radius:999px;
-
 background:#00d2ff;
 color:black;
 font-weight:bold;
 cursor:pointer;
+transition: transform 0.15s ease, box-shadow 0.15s ease;
+-webkit-tap-highlight-color: transparent;
+outline: none;
+}
+.fileLabel:active{
+transform: scale(0.92);
+box-shadow: 0 4px 10px rgba(0,0,0,0.3) inset;
+-webkit-tap-highlight-color: transparent;
+outline: none;
 }
 h2{text-align:center}
 input,textarea,select{
@@ -60,7 +67,20 @@ border:none;
 border-radius:25px;
 font-weight:bold;
 background:#00d2ff;
-cursor:pointer
+cursor:pointer;
+transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+button{
+transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fileLabel, .smallBtn{
+transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+button:active{
+-webkit-tap-highlight-color: transparent;
+outline: none;
+transform: scale(0.92);
+box-shadow: 0 4px 10px rgba(0,0,0,0.3) inset;
 }
 .smallBtn{
 height:35px;
@@ -138,8 +158,10 @@ max-height:120px;
 
 <div class="section">
 <h3>Upload Time Table</h3>
-<label for="timetableUpload" class="fileLabel">Choose File</label>
-<input type="file" id="timetableUpload" style="display:none;">
+<label class="fileLabel" onclick="document.getElementById('timetableUpload').click()">
+Choose File
+</label>
+<input type="file" id="timetableUpload" accept="image/*" style="display:none;">
 <button onclick="addTimetable()">Add Time Table</button>
 <div class="historyBox" id="adminTimetableList"></div>
 </div>
@@ -248,7 +270,7 @@ function loadAdminDivision(){
 let division=document.getElementById("divisionSelect").value
 let data=getDivisions()
 let box=document.getElementById("adminDivisionTable")
-box.innerHTML="<div style='overflow-x:auto'><table width='100%' border='1'><tr><th>Name</th><th>Roll</th><th>Action</th></tr>"
+box.innerHTML="<div style='overflow-x:auto'><table width='100%' border='0'>"
 data[division].forEach((student,index)=>{
 box.innerHTML+=`
 <tr>
@@ -270,7 +292,7 @@ function loadStudentDivision(){
 let division=document.getElementById("studentDivisionView").value
 let data=getDivisions()
 let box=document.getElementById("studentDivisionTable")
-box.innerHTML="<div style='overflow-x:auto'><table width='100%' border='1'><tr><th>Name</th><th>Roll</th></tr>"
+box.innerHTML="<div style='overflow-x:auto'><table width='100%' style='border-collapse:collapse;'>"
 data[division].forEach(student=>{
 box.innerHTML+=`
 <tr>
@@ -318,24 +340,46 @@ alert("Invalid Credentials")
 
 function addTimetable(){
 let file=document.getElementById("timetableUpload").files[0]
-if(!file)return
+
+if(!file){
+alert("Please select a file first")
+return
+}
+
+if(!file.type.startsWith("image/")){
+alert("Only image files allowed")
+return
+}
+
 let reader=new FileReader()
+
 reader.onload=function(){
 let timetables=JSON.parse(localStorage.getItem("timetables")||"[]")
 timetables.push(reader.result)
 localStorage.setItem("timetables",JSON.stringify(timetables))
+
+alert("Time Table Added")
+
+document.getElementById("timetableUpload").value=""
+
 loadAdminTimetables()
 }
+
 reader.readAsDataURL(file)
 }
 function loadAdminTimetables(){
 let box=document.getElementById("adminTimetableList")
 box.innerHTML=""
+
 let timetables=JSON.parse(localStorage.getItem("timetables")||"[]")
+
 timetables.forEach((img,index)=>{
 box.innerHTML+=`
+<div style="margin-bottom:10px">
 <p>Time Table ${index+1}</p>
+<img src="${img}" style="width:100%;border-radius:15px;">
 <button class="smallBtn" onclick="removeTimetable(${index})">Remove</button>
+</div>
 `
 })
 }
@@ -396,7 +440,7 @@ function sendQuestion(){
 let question=document.getElementById("questionBox").value
 if(question==="")return
 let questions=JSON.parse(localStorage.getItem("questions")||"[]")
-questions.push(question)
+questions.push({ question: question, reply: "" })
 localStorage.setItem("questions",JSON.stringify(questions))
 document.getElementById("questionBox").value=""
 loadStudentQuestions()
@@ -404,9 +448,16 @@ loadStudentQuestions()
 function loadStudentQuestions(){
 let box=document.getElementById("studentQuestionHistory")
 box.innerHTML=""
+
 let questions=JSON.parse(localStorage.getItem("questions")||"[]")
+
 questions.forEach(q=>{
-box.innerHTML+=`<p>${q}</p>`
+box.innerHTML+=`
+<div style="margin-bottom:10px">
+<p><b>Q:</b> ${q.question}</p>
+<p><b>Reply:</b> ${q.reply ? q.reply : "No reply yet"}</p>
+</div>
+`
 })
 }
 function loadAdminQuestions(){
@@ -414,8 +465,14 @@ let box=document.getElementById("adminQuestionHistory")
 box.innerHTML=""
 let questions=JSON.parse(localStorage.getItem("questions")||"[]")
 questionCount=questions.length
-questions.forEach(q=>{
-box.innerHTML+=`<p>${q}</p>`
+questions.forEach((q,index)=>{
+box.innerHTML+=`
+<p><b>Q:</b> ${q.question}</p>
+
+<textarea placeholder="Type reply..." id="reply_${index}">${q.reply || ""}</textarea>
+
+<button onclick="sendReply(${index})">Send Reply</button>
+`
 })
 }
 function startPopupCheck(){
@@ -495,7 +552,11 @@ data.forEach((a,index)=>{
 box.innerHTML+=`
 <p>${a.title} (${a.division}) - Due: ${a.deadline}</p>
 
-${a.file ? `<a href="${a.file}" target="_blank">View File</a><br>` : ""}
+${a.file ? `
+<button class="fileLabel" onclick="viewFile('${a.file}')">
+View File
+</button>
+` : ""}
 
 <button class="smallBtn" onclick="toggleLock(${index})">
 ${a.locked ? "Unlock" : "Lock"}
@@ -532,13 +593,22 @@ box.innerHTML+=`
 <div style="margin-bottom:10px; ${isLate?'opacity:0.5;':''}"><p style="color:${color}"><b>${a.title}</b></p>
 <p>Due: ${a.deadline}</p>
 
-${a.file ? `<a href="${a.file}" target="_blank">Download Assignment</a><br>` : ""}
+${a.file ? `
+<button class="fileLabel" onclick="downloadFile('${a.file}')">
+Download Assignment
+</button>
+` : ""}
 
 ${submitted 
-? "<p>Submitted âœ…</p>" 
+? "<p>Submitted</p>" 
 : (a.locked 
 ? "<p>Submission Locked”’</p>" 
-: `<input type="file" accept=".pdf,.jpg,.png" onchange="submitAssignment(event,${a.id})">`)}</div>
+: `
+<label class="fileLabel" onclick="triggerFile(${a.id})">
+Choose File
+</label>
+<input type="file" id="file_${a.id}" accept=".pdf,.jpg,.png" style="display:none" onchange="submitAssignment(event,${a.id})">
+`)}</div>
 `
 }
 })
@@ -594,6 +664,31 @@ loadStudentTimetables()
 loadStudentQuestions()
 loadStudentAssignments() 
 }
+}
+document.querySelectorAll("button").forEach(btn=>{
+btn.addEventListener("click", function(){
+this.style.transform = "scale(0.92)";
+
+setTimeout(()=>{
+this.style.transform = "scale(1.05)";
+},100);
+
+setTimeout(()=>{
+this.style.transform = "scale(1)";
+},200);
+});
+});
+function triggerFile(id){
+document.getElementById("file_"+id).click()
+}
+function downloadFile(file){
+let a = document.createElement("a")
+a.href = file
+a.download = "assignment"
+a.click()
+}
+function viewFile(file){
+window.open(file, "_blank")
 }
 </script>
 
